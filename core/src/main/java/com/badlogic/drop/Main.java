@@ -158,17 +158,21 @@ public class Main implements ApplicationListener {
                 characterSprite.translate(direction.x * speed * delta, direction.y * speed * delta);
             }
 
-            // characterOrientation gets the correct character image according to the movement
-            if (direction.x > 0) {
-                characterOrientation = characterRight;
-            } else if (direction.x < 0) {
-                characterOrientation = characterLeft;
-            }
-
-            if (direction.y > 0) {
-                characterOrientation = characterBack;
-            } else if (direction.y < 0) {
-                characterOrientation = characterFront;
+            // characterOrientation gets the correct character image according to the movement (copy&paste from chatgpt)
+            if (Math.abs(direction.x) > Math.abs(direction.y)) {
+                // horizontal movement is dominant
+                if (direction.x > 0) {
+                    characterOrientation = characterRight;
+                } else {
+                    characterOrientation = characterLeft;
+                }
+            } else {
+                // vertical movement is dominant
+                if (direction.y > 0) {
+                    characterOrientation = characterBack;
+                } else {
+                    characterOrientation = characterFront;
+                }
             }
         }
     }
@@ -223,8 +227,8 @@ public class Main implements ApplicationListener {
 
         // if character is closer to the left kitchenTile
         if (characterSprite.getX() < 2.5f) {
-            // z-order for kitchenTileLeft and character (take half of the tiles height and add the y-position)
-            if ((characterSprite.getY() >= (2.6f / 2) + 0.14f)) {
+            // z-order for kitchenTileLeft and character (had to manually adjust the height comparison)
+            if (characterSprite.getY() >= 2.2f) {
                 System.out.println("yes");
                 spriteBatch.draw(characterOrientation,
                     characterSprite.getX(),
