@@ -229,7 +229,6 @@ public class Main implements ApplicationListener {
         if (characterSprite.getX() < 2.5f) {
             // z-order for kitchenTileLeft and character (had to manually adjust the height comparison)
             if (characterSprite.getY() >= 2.2f) {
-                System.out.println("yes");
                 spriteBatch.draw(characterOrientation,
                     characterSprite.getX(),
                     characterSprite.getY(),
