@@ -2,6 +2,8 @@ package com.badlogic.drop;
 
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.audio.Sound;
+import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
@@ -19,16 +21,32 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
 public class Main implements ApplicationListener {
     SpriteBatch spriteBatch;
+    WalkingAnimation walkRight;
+    WalkingAnimation walkLeft;
+    WalkingAnimation walkUp;
+    WalkingAnimation walkDown;
+
     TextureRegion characterLeft;
     TextureRegion characterRight;
-    TextureRegion characterFront;
-    TextureRegion characterBack;
+    TextureRegion characterDown;
+    TextureRegion characterUp;
     TextureRegion characterOrientation;
+    TextureRegion characterRightWalk1;
+    TextureRegion characterRightWalk2;
+    TextureRegion characterLeftWalk1;
+    TextureRegion characterLeftWalk2;
+    TextureRegion characterUpWalk1;
+    TextureRegion characterUpWalk2;
+    TextureRegion characterDownWalk1;
+    TextureRegion characterDownWalk2;
+    TextureRegion lastDirection;
+
     FitViewport viewport;
+
+    String direction;
 
     float previousPositionX;
     float previousPositionY;
-
 
     Sprite characterSprite;
 
@@ -38,6 +56,9 @@ public class Main implements ApplicationListener {
     Texture kitchenTileMiddle;
     Texture characterTexture;
 
+    TextureRegion[] walkRightFrames;
+    TextureRegion[] walkingLeftFrames;
+
     Rectangle characterBox;
     Array<Rectangle> kitchenBox;
     ShapeRenderer borderBox;
@@ -46,23 +67,48 @@ public class Main implements ApplicationListener {
     Vector2 targetPos;
     Vector2 characterPos;
 
+
+    Music backgroundMusic;
+
     @Override
     public void create() {
         // Prepare your application here.
-        backgroundTexture = new Texture("kitchen.png");
+        backgroundTexture = new Texture("background.png");
         kitchenTileLeft = new Texture("kitchenTileLeft.png");
         kitchenTileRight = new Texture("kitchenTileRight.png");
         kitchenTileMiddle = new Texture("kitchenTileMiddle.png");
-        characterTexture = new Texture("worker.png");
-
+        characterTexture = new Texture("cook_sprite.png");
         spriteBatch = new SpriteBatch();
         viewport = new FitViewport(8, 5);
 
+        backgroundMusic = Gdx.audio.newMusic(Gdx.files.internal("cooking.mp3"));
+
         // character images
-        characterRight = new TextureRegion(characterTexture, 0, 480, 300, 480);
-        characterLeft = new TextureRegion(characterTexture, 300, 480, 300, 480);
-        characterFront = new TextureRegion(characterTexture, 0, 0, 300, 480);
-        characterBack = new TextureRegion(characterTexture, 300, 0, 300, 480);
+        characterRight = new TextureRegion(characterTexture, 250, 0, 250, 250);
+        characterLeft = new TextureRegion(characterTexture, 750, 0, 250, 250);
+        characterDown = new TextureRegion(characterTexture, 500, 0, 250, 250);
+        characterUp = new TextureRegion(characterTexture, 0, 0, 250, 250);
+        characterRightWalk1 = new TextureRegion(characterTexture, 250, 250, 250, 250);
+        characterRightWalk2 = new TextureRegion(characterTexture, 250, 500, 250, 250);
+        characterLeftWalk1 = new TextureRegion(characterTexture, 750, 250, 250, 250);
+        characterLeftWalk2 = new TextureRegion(characterTexture, 750, 500, 250, 250);
+        characterUpWalk1 = new TextureRegion(characterTexture, 0, 250, 250, 250);
+        characterUpWalk2 = new TextureRegion(characterTexture, 0, 500, 250, 250);
+        characterDownWalk1 = new TextureRegion(characterTexture, 500, 250, 250, 250);
+        characterDownWalk2 = new TextureRegion(characterTexture, 500, 500, 250, 250);
+
+        walkRight = new WalkingAnimation(
+            new TextureRegion[] {characterRight, characterRightWalk1, characterRightWalk2}, 0.15f
+        );
+        walkLeft = new WalkingAnimation(
+            new TextureRegion[] {characterLeft, characterLeftWalk1, characterLeftWalk2}, 0.15f
+        );
+        walkUp = new WalkingAnimation(
+            new TextureRegion[] {characterUp, characterUpWalk1, characterUpWalk2}, 0.15f
+        );
+        walkDown = new WalkingAnimation(
+            new TextureRegion[] {characterDown, characterDownWalk1, characterDownWalk2}, 0.15f
+        );
 
         // character width and height based on the images
         float regionWidth = characterLeft.getRegionWidth();
@@ -82,6 +128,7 @@ public class Main implements ApplicationListener {
 
         /// kitchen furniture boxes
         // box for kitchenTileLeft
+        /*
         kitchenBox.add(new Rectangle(0.08f, 1.1f, 1.4f, 1.2f));
         // box for upper kitchen part
         kitchenBox.add(new Rectangle(0f, 3.6f, 8f, 1.0f));
@@ -96,10 +143,31 @@ public class Main implements ApplicationListener {
         kitchenBox.add(new Rectangle(7.4f, 3f, 0.3f, 0.5f));
         kitchenBox.add(new Rectangle(7.4f, 0f, 0.3f, 0.5f));
 
+         */
+
         mousePos = new Vector2();
         targetPos = new Vector2(characterSprite.getX(), characterSprite.getY());
         characterPos = new Vector2();
+
+        backgroundMusic.setLooping(true);
+        backgroundMusic.setVolume(0.5f);
+        backgroundMusic.play();
+
+
     }
+
+    public void playSound() {
+
+    }
+
+    public void pauseMusic() {
+        backgroundMusic.pause();
+    }
+
+    public void stopMusic() {
+        backgroundMusic.stop();
+    }
+
 
     @Override
     public void resize(int width, int height) {
@@ -119,24 +187,58 @@ public class Main implements ApplicationListener {
         // movement speed
         float speed = 4f;
         float delta = Gdx.graphics.getDeltaTime();
+        boolean moving = false;
+
         previousPositionX = characterSprite.getX();
         previousPositionY = characterSprite.getY();
 
         // movement keyboard controls
-        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)){
-         characterSprite.translateX(speed * delta);
-         characterOrientation = characterRight;
+        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
+            characterSprite.translateX(speed * delta);
+            characterOrientation = walkRight.getFrame(delta, true);
+            lastDirection = walkRight.getFrame(delta, true);
+            moving = true;
+            direction = "right";
+
         } else if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
             characterSprite.translateX(-speed * delta);
-            characterOrientation = characterLeft;
-        }
+            characterOrientation = walkLeft.getFrame(delta, true);
+            lastDirection = walkLeft.getFrame(delta, true);
+            moving = true;
+            direction = "left";
 
-        if (Gdx.input.isKeyPressed(Input.Keys.UP)){
+        } else if (Gdx.input.isKeyPressed(Input.Keys.UP)){
             characterSprite.translateY(speed * delta);
-            characterOrientation = characterBack;
+            characterOrientation = walkUp.getFrame(delta, true);
+            lastDirection = walkUp.getFrame(delta, true);
+            moving = true;
+            direction = "up";
+
         } else if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
             characterSprite.translateY(-speed * delta);
-            characterOrientation = characterFront;
+            characterOrientation = walkDown.getFrame(delta, true);
+            lastDirection = walkDown.getFrame(delta, true);
+            moving = true;
+            direction = "down";
+
+        } else {
+            characterOrientation = lastDirection;
+        }
+
+        if (!moving) {
+            if (direction == "right") {
+                lastDirection = walkRight.getFrame(delta,false);
+                characterOrientation = lastDirection;
+            } else if (direction == "left") {
+                lastDirection = walkLeft.getFrame(delta,false);
+                characterOrientation = lastDirection;
+            } else if (direction == "up") {
+                lastDirection = walkUp.getFrame(delta,false);
+                characterOrientation = lastDirection;
+            } else {
+                lastDirection = walkDown.getFrame(delta,false);
+                characterOrientation = lastDirection;
+            }
         }
 
         // mouse controls
@@ -169,9 +271,9 @@ public class Main implements ApplicationListener {
             } else {
                 // vertical movement is dominant
                 if (direction.y > 0) {
-                    characterOrientation = characterBack;
+                    characterOrientation = characterUp;
                 } else {
-                    characterOrientation = characterFront;
+                    characterOrientation = characterDown;
                 }
             }
         }
@@ -327,5 +429,6 @@ public class Main implements ApplicationListener {
     @Override
     public void dispose() {
         // Destroy application's resources here.
+        //backgroundMusic.dispose();
     }
 }
